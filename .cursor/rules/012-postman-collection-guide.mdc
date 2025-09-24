@@ -1,0 +1,320 @@
+---
+alwaysApply: true
+description: Postman Collection 작성 및 API 테스트 환경 구축 가이드라인
+---
+
+# Postman Collection 작성 가이드라인
+
+## 📝 개요
+API 테스트를 위한 Postman Collection과 Environment 파일 작성 표준화 가이드
+
+## 📁 파일 구조 및 명명 규칙
+
+### 1. 디렉토리 구조
+```
+postman/
+├── {Project-Name}-API-v{version}.postman_collection.json
+├── {Project-Name}-Environment.postman_environment.json
+└── README.md
+```
+
+### 2. 파일 명명 규칙
+- **Collection**: `{프로젝트명}-API-v{버전}.postman_collection.json`
+- **Environment**: `{프로젝트명}-Environment.postman_environment.json`
+- **예시**: `Car-Center-API-v1.postman_collection.json`
+
+## 🗂️ Collection 구조 설계
+
+### 1. 폴더 구조 (기능별 분류)
+```json
+{
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        "1. Register New User",
+        "2. Login - Customer", 
+        "3. Login - Admin",
+        "4. Refresh Token",
+        "5. Verify Phone",
+        "6. Logout"
+      ]
+    },
+    {
+      "name": "User Profile Management",
+      "item": [...]
+    },
+    {
+      "name": "Admin Operations", 
+      "item": [...]
+    },
+    {
+      "name": "Error Cases",
+      "item": [...]
+    }
+  ]
+}
+```
+
+### 2. 요청 명명 규칙
+- **패턴**: `{순번}. {기능명} ({상세설명})`
+- **예시**: 
+  - `1. Register New User`
+  - `2. Login - Customer`
+  - `3. Get Current User Profile`
+
+## 🔧 Environment 변수 설정
+
+### 1. 필수 환경 변수
+```json
+{
+  "values": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api",
+      "type": "default"
+    },
+    {
+      "key": "accessToken", 
+      "value": "",
+      "type": "secret"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "secret" 
+    },
+    {
+      "key": "adminAccessToken",
+      "value": "",
+      "type": "secret"
+    },
+    {
+      "key": "userEmail",
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "userRole",
+      "value": "",
+      "type": "default"
+    }
+  ]
+}
+```
+
+### 2. 토큰 자동 관리 스크립트
+로그인 성공 시 토큰 자동 저장:
+```javascript
+// Tests 탭에 추가
+if (pm.response.code === 200) {
+    const responseJson = pm.response.json();
+    pm.environment.set('accessToken', responseJson.accessToken);
+    pm.environment.set('refreshToken', responseJson.refreshToken);
+    pm.environment.set('userEmail', responseJson.email);
+    pm.environment.set('userRole', responseJson.role);
+}
+```
+
+## 📋 Request 템플릿
+
+### 1. 인증이 필요한 요청
+```json
+{
+  "name": "Get Current User Profile",
+  "request": {
+    "method": "GET",
+    "header": [
+      {
+        "key": "Authorization",
+        "value": "Bearer {{accessToken}}"
+      }
+    ],
+    "url": {
+      "raw": "{{baseUrl}}/users/profile",
+      "host": ["{{baseUrl}}"],
+      "path": ["users", "profile"]
+    }
+  }
+}
+```
+
+### 2. 인증이 불필요한 요청
+```json
+{
+  "name": "Login - Customer",
+  "request": {
+    "method": "POST",
+    "header": [
+      {
+        "key": "Content-Type",
+        "value": "application/json"
+      }
+    ],
+    "body": {
+      "mode": "raw",
+      "raw": "{\n    \"email\": \"customer@example.com\",\n    \"password\": \"password123\"\n}"
+    },
+    "url": {
+      "raw": "{{baseUrl}}/auth/login",
+      "host": ["{{baseUrl}}"],
+      "path": ["auth", "login"]
+    }
+  }
+}
+```
+
+## ✅ 테스트 스크립트 패턴
+
+### 1. 기본 응답 검증
+```javascript
+pm.test("응답 상태 코드 확인", function () {
+    pm.response.to.have.status(200);
+});
+
+pm.test("응답 데이터 구조 검증", function () {
+    const responseJson = pm.response.json();
+    pm.expect(responseJson).to.have.property('accessToken');
+    pm.expect(responseJson.accessToken).to.not.be.empty;
+});
+```
+
+### 2. 오류 케이스 검증
+```javascript
+pm.test("로그인 실패 테스트", function () {
+    if (pm.response.code === 401) {
+        pm.expect(pm.response.json().message).to.include("인증");
+    } else {
+        pm.response.to.have.status(200);
+    }
+});
+```
+
+### 3. 권한 검증
+```javascript
+pm.test("관리자 권한 확인", function () {
+    if (pm.response.code === 200) {
+        const responseJson = pm.response.json();
+        pm.expect(responseJson.role).to.equal("SYSTEM_ADMIN");
+    } else {
+        pm.response.to.have.status(403);
+    }
+});
+```
+
+## 📄 Documentation 표준
+
+### 1. Request Description 패턴
+```json
+{
+  "name": "1. Register New User",
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "exec": [
+          "if (pm.response.code === 201) {",
+          "    const responseJson = pm.response.json();",
+          "    pm.environment.set('accessToken', responseJson.accessToken);",
+          "    pm.test('회원가입 성공', function () {",
+          "        pm.expect(responseJson.role).to.equal('CUSTOMER');",
+          "    });",
+          "}"
+        ]
+      }
+    }
+  ]
+}
+```
+
+### 2. Collection Description
+```json
+{
+  "info": {
+    "name": "Car Center API v1 - User Authentication",
+    "description": "Car Center 시스템 사용자 인증 API 테스트 컬렉션\n\n## 사용 방법\n1. 환경 변수 설정: baseUrl = http://localhost:8080/api\n2. 회원가입 또는 로그인으로 JWT 토큰 획득\n3. 토큰이 자동으로 환경 변수에 저장되어 인증이 필요한 API에 사용됩니다"
+  }
+}
+```
+
+## 🧪 테스트 시나리오 구성
+
+### 1. 기본 인증 흐름
+- **회원가입** → **로그인** → **프로필 조회** → **프로필 수정** → **로그아웃**
+
+### 2. 관리자 기능 테스트
+- **관리자 로그인** → **사용자 목록 조회** → **특정 사용자 관리** → **권한 검증**
+
+### 3. 오류 케이스 테스트
+- **잘못된 인증 정보** → **권한 없는 접근** → **토큰 만료** → **필수 파라미터 누락**
+
+## 📊 README.md 작성 가이드
+
+### 1. 필수 포함 항목
+```markdown
+# {프로젝트명} API Postman Collection
+
+## 📁 파일 목록
+- `{프로젝트명}-API-v{버전}.postman_collection.json`
+- `{프로젝트명}-Environment.postman_environment.json`
+
+## 🚀 설정 방법
+1. Postman에서 Collection 및 Environment 가져오기
+2. Environment 선택
+3. 테스트 실행
+
+## 📋 기본 테스트 계정
+| 역할 | 이메일 | 비밀번호 | 용도 |
+|------|--------|----------|------|
+| 관리자 | admin@example.com | password123 | 모든 API 테스트 |
+| 사용자 | user@example.com | password123 | 일반 사용자 기능 |
+
+## 🧪 테스트 시나리오
+1. 기본 인증 흐름
+2. 관리자 기능 테스트  
+3. 오류 케이스 테스트
+
+## 🔧 문제 해결
+- 애플리케이션 실행: `gradlew bootRun`
+- H2 콘솔: http://localhost:8080/api/h2-console
+- Swagger UI: http://localhost:8080/api/swagger-ui/index.html
+```
+
+## 🎯 Best Practices
+
+### 1. 요청 순서 설계
+- 의존성 있는 요청들을 순서대로 배치
+- 로그인 → 토큰 사용 → 로그아웃 순서 유지
+
+### 2. 환경별 설정
+- 로컬, 개발, 스테이징, 운영 환경별 Environment 분리
+- 환경별 baseUrl 및 인증 정보 관리
+
+### 3. 보안 고려사항
+- 민감한 정보는 `type: "secret"` 설정
+- 실제 계정 정보는 Environment에 저장하지 않고 README에 명시
+
+### 4. 유지보수성
+- API 변경 시 Collection도 함께 업데이트
+- 버전별 Collection 관리 (v1, v2, ...)
+- 정기적인 테스트 실행으로 API 상태 확인
+
+## 🔄 자동화 고려사항
+
+### 1. Newman 사용
+```bash
+# CLI에서 Collection 실행
+newman run {collection-file} -e {environment-file}
+```
+
+### 2. CI/CD 통합
+- API 테스트를 자동화 파이프라인에 포함
+- 배포 전 자동 테스트 실행
+
+### 3. 모니터링
+- Postman Monitor 설정으로 정기적 API 상태 확인
+- 중요 API의 가용성 모니터링
+
+---
+**작성일**: 2024-09-24  
+**최종 수정**: Task 1 - 사용자 인증 시스템 Postman Collection 작성 완료

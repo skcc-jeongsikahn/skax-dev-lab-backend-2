@@ -1,0 +1,154 @@
+---
+alwaysApply: true
+description: 한글 및 다국어 인코딩, H2 데이터베이스 설정 가이드라인
+---
+
+# 인코딩 및 데이터베이스 설정 가이드라인
+
+## 📝 개요
+한국어 및 다국어 지원을 위한 인코딩 설정과 H2 데이터베이스 설정 표준화 가이드
+
+## 🌐 문자 인코딩 설정
+
+### 1. 애플리케이션 레벨 인코딩 설정
+`application.yml`에 서블릿 인코딩 설정 추가:
+```yaml
+server:
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+```
+
+### 2. 데이터베이스 SQL 스크립트 인코딩
+`application-local.yml` (또는 해당 프로파일)에 SQL 스크립트 인코딩 설정:
+```yaml
+spring:
+  sql:
+    init:
+      encoding: UTF-8
+```
+
+### 3. JVM 실행 시 인코딩 옵션
+애플리케이션 실행 시 다음 JVM 옵션 포함:
+```bash
+-Dfile.encoding=UTF-8 -Dspring.datasource.sql-script-encoding=UTF-8
+```
+
+### 4. SQL 파일 헤더
+모든 SQL 파일 상단에 인코딩 명시:
+```sql
+-- charset: UTF-8
+```
+
+## 🗄️ H2 데이터베이스 설정
+
+### 1. H2 PostgreSQL 호환 모드 설정
+로컬 개발 환경에서 PostgreSQL 호환성을 위한 H2 URL 설정:
+```yaml
+spring:
+  datasource:
+    url: jdbc:h2:mem:database_name;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
+```
+
+### 2. 스키마 정의 표준
+H2 PostgreSQL 모드에서 테이블 생성 시:
+```sql
+-- ✅ 올바른 방법 (PostgreSQL 호환)
+CREATE TABLE table_name (
+    id BIGSERIAL PRIMARY KEY,
+    -- 기타 컬럼들
+);
+
+-- ❌ 잘못된 방법 (H2 기본 모드)
+CREATE TABLE table_name (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    -- 기타 컬럼들
+);
+```
+
+### 3. 데이터 타입 호환성
+- **기본키**: `BIGSERIAL` 사용 (PostgreSQL 호환)
+- **문자열**: `VARCHAR(길이)` 사용
+- **불린**: `BOOLEAN` 사용
+- **날짜시간**: `TIMESTAMP` 사용
+- **날짜**: `DATE` 사용
+
+## 🔧 MyBatis 설정
+
+### 1. Enum 타입 핸들러
+MyBatis XML에서 Enum 사용 시:
+```xml
+<result property="role" column="role" typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+```
+
+### 2. 한글 파라미터 처리
+MyBatis 설정에서 문자 인코딩 고려:
+```yaml
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+    default-fetch-size: 100
+    default-statement-timeout: 30
+```
+
+## 🧪 테스트 환경 설정
+
+### 1. 테스트용 application-test.yml
+```yaml
+spring:
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    username: sa
+    password:
+  sql:
+    init:
+      mode: always
+      encoding: UTF-8
+      schema-locations: classpath:schema-h2.sql
+      data-locations: classpath:data-h2.sql
+```
+
+### 2. 테스트 데이터 준비
+한글이 포함된 테스트 데이터가 있는 경우:
+- 영문 버전 백업 파일 준비 (`data-h2-english.sql`)
+- 인코딩 문제 발생 시 영문 버전으로 대체 가능하도록 설정
+
+## 📋 체크리스트
+
+### 새 프로젝트 시작 시
+- [ ] `application.yml`에 서블릿 인코딩 설정 추가
+- [ ] H2 데이터베이스 URL에 PostgreSQL 모드 설정
+- [ ] SQL 스크립트 인코딩 설정 추가
+- [ ] 모든 SQL 파일에 charset 명시
+
+### 데이터베이스 스키마 작성 시
+- [ ] `BIGSERIAL` 사용 (AUTO_INCREMENT 대신)
+- [ ] PostgreSQL 호환 문법 사용
+- [ ] 외래키 제약조건 적용
+- [ ] 적절한 인덱스 생성
+
+### 다국어 데이터 처리 시
+- [ ] UTF-8 인코딩 확인
+- [ ] H2 콘솔에서 한글 표시 확인
+- [ ] API 응답에서 한글 정상 출력 확인
+- [ ] 로그에서 한글 정상 출력 확인
+
+## 🚨 주의사항
+
+1. **H2 모드 변경**: H2 기본 모드에서 PostgreSQL 모드로 변경 시 기존 스키마 호환성 확인 필요
+2. **대소문자 구분**: PostgreSQL 모드에서는 컬럼명이 소문자로 변환됨
+3. **인코딩 일관성**: 모든 레이어(DB, 애플리케이션, API)에서 UTF-8 사용 통일
+4. **배포 환경**: 개발 환경과 운영 환경 간 인코딩 설정 일치 확인
+
+## 📖 참고 자료
+
+- [H2 Database PostgreSQL Mode](http://h2database.com/html/features.html#postgresql_compatibility)
+- [Spring Boot Database Initialization](https://docs.spring.io/spring-boot/docs/current/reference/html/howto.html#howto.data-initialization)
+- [MyBatis Type Handlers](https://mybatis.org/mybatis-3/configuration.html#typeHandlers)
+
+---
+**작성일**: 2024-09-24  
+**최종 수정**: Task 1 - 사용자 인증 시스템 구현 중 인코딩 이슈 해결
