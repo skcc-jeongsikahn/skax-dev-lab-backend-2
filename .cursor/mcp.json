@@ -1,0 +1,10 @@
+{
+	"mcpServers": {
+		"task-master-ai": {
+			"command": "task-master-ai",
+			"env": {
+				"ANTHROPIC_API_KEY": ""
+			}
+		}
+	}
+}

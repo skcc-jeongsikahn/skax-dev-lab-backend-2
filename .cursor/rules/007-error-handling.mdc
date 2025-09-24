@@ -1,0 +1,105 @@
+---
+globs: **/exception/*.java,**/GlobalExceptionHandler.java
+description: 예외 처리 및 에러 응답 가이드
+---
+
+# 예외 처리 및 에러 응답 가이드
+
+## 전역 예외 처리
+[GlobalExceptionHandler.java](mdc:src/main/java/com/carcenter/global/exception/GlobalExceptionHandler.java)를 참고하여 일관된 에러 응답을 제공합니다.
+
+## 표준 에러 응답 형식
+```json
+{
+  "status": 400,
+  "error": "Bad Request",
+  "message": "입력값 검증에 실패했습니다",
+  "errors": {
+    "username": "사용자명은 필수입니다",
+    "email": "올바른 이메일 형식이 아닙니다"
+  }
+}
+```
+
+## 도메인별 예외 클래스
+```java
+// 도메인별 예외 생성
+public class UserNotFoundException extends RuntimeException {
+    public UserNotFoundException(String message) {
+        super(message);
+    }
+    
+    public UserNotFoundException(String message, Throwable cause) {
+        super(message, cause);
+    }
+}
+
+// 사용 예시
+@Service
+public class UserService {
+    public UserResponse getUser(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new UserNotFoundException("User not found with id: " + id));
+        return UserResponse.from(user);
+    }
+}
+```
+
+## 예외 처리 핸들러 추가
+```java
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+    
+    @ExceptionHandler(UserNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleUserNotFoundException(UserNotFoundException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", HttpStatus.NOT_FOUND.value());
+        response.put("error", "User Not Found");
+        response.put("message", ex.getMessage());
+        
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+}
+```
+
+## 입력값 검증 어노테이션
+```java
+@Getter
+@NoArgsConstructor
+@AllArgsConstructor
+public class UserCreateRequest {
+    @NotBlank(message = "사용자명은 필수입니다")
+    @Size(min = 3, max = 20, message = "사용자명은 3-20자 사이여야 합니다")
+    private String username;
+
+    @NotBlank(message = "이메일은 필수입니다")
+    @Email(message = "올바른 이메일 형식이 아닙니다")
+    private String email;
+
+    @NotBlank(message = "비밀번호는 필수입니다")
+    @Size(min = 8, max = 20, message = "비밀번호는 8-20자 사이여야 합니다")
+    private String password;
+}
+```
+
+## HTTP 상태 코드별 예외
+- **400 Bad Request**: `MethodArgumentNotValidException`, `BindException`
+- **401 Unauthorized**: `AuthenticationException`, JWT 토큰 오류
+- **403 Forbidden**: `AccessDeniedException`, 권한 부족
+- **404 Not Found**: `{Entity}NotFoundException`
+- **409 Conflict**: 중복 데이터 등
+- **500 Internal Server Error**: `RuntimeException`, 예상치 못한 오류
+
+## 로깅 패턴
+```java
+@Slf4j
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+    
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<Map<String, Object>> handleRuntimeException(RuntimeException ex) {
+        log.error("Runtime exception occurred: ", ex);
+        // 에러 응답 처리
+    }
+}
+```

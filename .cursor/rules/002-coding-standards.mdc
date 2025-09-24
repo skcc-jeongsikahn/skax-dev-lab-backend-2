@@ -1,0 +1,58 @@
+---
+globs: *.java
+description: Java 코딩 표준 및 Spring Boot 베스트 프랙티스
+---
+
+# Java 코딩 표준
+
+## 네이밍 컨벤션
+- **클래스명**: PascalCase (예: `UserController`, `AuthService`)
+- **메서드명**: camelCase (예: `createUser`, `findByUsername`)
+- **변수명**: camelCase (예: `userName`, `accessToken`)
+- **상수명**: UPPER_SNAKE_CASE (예: `JWT_SECRET`, `MAX_RETRY_COUNT`)
+- **패키지명**: 소문자 + 점 표기법 (예: `com.carcenter.domain.user`)
+
+## Lombok 사용 규칙
+```java
+// 엔티티 클래스
+@Getter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+
+// DTO 클래스
+@Getter
+@NoArgsConstructor
+@AllArgsConstructor
+
+// 서비스/컨트롤러 클래스
+@RequiredArgsConstructor
+```
+
+## Spring 어노테이션 순서
+```java
+@RestController
+@RequestMapping("/api/users")
+@RequiredArgsConstructor
+@Validated
+public class UserController {
+    // ...
+}
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class UserService {
+    // ...
+}
+```
+
+## 메서드 구조
+- `@Transactional` 어노테이션은 서비스 레벨에서 사용
+- 읽기 전용 작업은 `@Transactional(readOnly = true)`
+- 컨트롤러에서는 `@Valid` 어노테이션으로 입력 검증
+- 예외 처리는 GlobalExceptionHandler 활용
+
+## 의존성 주입
+- 생성자 주입 사용 (`@RequiredArgsConstructor`)
+- 필드 주입 금지 (`@Autowired` 직접 사용 금지)

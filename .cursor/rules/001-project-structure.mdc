@@ -1,0 +1,50 @@
+---
+alwaysApply: true
+description: Car Center API 프로젝트 구조 및 기본 규칙
+---
+
+# Car Center API 프로젝트 구조 가이드
+
+## 기술 스택
+- **Spring Boot**: 3.4.1
+- **Java**: 17
+- **Gradle**: 8.14.3
+- **Database**: H2 (local), PostgreSQL (dev/prod)
+- **ORM**: MyBatis
+- **Security**: Spring Security + JWT
+- **Build Tool**: Gradle
+
+## 프로젝트 구조
+```
+src/main/java/com/carcenter/
+├── CarCenterApplication.java          # 메인 애플리케이션 클래스
+├── config/                            # 설정 클래스
+├── domain/                           # 도메인별 패키지
+│   └── {domain}/                     # 각 도메인
+│       ├── controller/               # REST API 컨트롤러
+│       ├── service/                  # 비즈니스 로직
+│       ├── repository/               # 데이터 접근 계층 (MyBatis)
+│       ├── entity/                   # 도메인 엔티티
+│       ├── dto/                      # 데이터 전송 객체
+│       └── exception/                # 도메인별 예외
+├── security/                         # 보안 관련 클래스
+└── global/                           # 전역 설정
+```
+
+## 핵심 설정 파일
+- [build.gradle](mdc:build.gradle) - Gradle 빌드 설정
+- [application.yml](mdc:src/main/resources/application.yml) - 기본 설정
+- [application-local.yml](mdc:src/main/resources/application-local.yml) - 로컬 H2 설정
+- [SecurityConfig.java](mdc:src/main/java/com/carcenter/config/SecurityConfig.java) - 보안 설정
+- [MyBatisConfig.java](mdc:src/main/java/com/carcenter/config/MyBatisConfig.java) - MyBatis 설정
+
+## 도메인 구조 예시
+User 도메인을 참고하여 새로운 도메인을 구성하세요:
+- [UserController.java](mdc:src/main/java/com/carcenter/domain/user/controller/UserController.java)
+- [UserService.java](mdc:src/main/java/com/carcenter/domain/user/service/UserService.java)
+- [UserRepository.java](mdc:src/main/java/com/carcenter/domain/user/repository/UserRepository.java)
+- [User.java](mdc:src/main/java/com/carcenter/domain/user/entity/User.java)
+
+## 개발 환경
+- **로컬**: H2 메모리 데이터베이스 (자동 스키마 생성)
+- **개발/운영**: PostgreSQL

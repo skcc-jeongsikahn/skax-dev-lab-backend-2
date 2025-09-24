@@ -1,0 +1,75 @@
+---
+globs: **/application*.yml,build.gradle
+description: 로컬 개발 환경 설정 및 H2 데이터베이스 가이드
+---
+
+# 로컬 개발 환경 설정
+
+## 환경 프로파일
+- **local**: H2 메모리 데이터베이스
+- **dev**: PostgreSQL 개발 서버
+- **prod**: PostgreSQL 운영 서버
+
+## H2 데이터베이스 설정 (로컬)
+```yaml
+spring:
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:carcenter_local;DB_CLOSE_DELAY=-1
+    username: sa
+    password: 
+  
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema-h2.sql
+      data-locations: classpath:data-h2.sql
+```
+
+## H2 콘솔 접근
+- **URL**: `http://localhost:8080/api/h2-console`
+- **JDBC URL**: `jdbc:h2:mem:carcenter_local`
+- **Username**: `sa`
+- **Password**: (빈 값)
+
+## 애플리케이션 실행
+```bash
+# 로컬 환경으로 실행
+./gradlew bootRun --args='--spring.profiles.active=local'
+
+# 또는 Windows
+gradlew.bat bootRun --args='--spring.profiles.active=local'
+```
+
+## 초기 데이터
+기본 사용자 계정 (비밀번호: `password123`):
+- **admin / admin@carcenter.com** (ADMIN 권한)
+- **user1 / user1@carcenter.com** (USER 권한) 
+- **user2 / user2@carcenter.com** (USER 권한)
+- **manager / manager@carcenter.com** (MANAGER 권한)
+
+## 개발 도구
+- **DevTools**: 자동 재시작 활성화
+- **Actuator**: `/api/actuator/health` 엔드포인트
+- **H2 Console**: 데이터베이스 관리 UI
+- **Live Reload**: 프론트엔드 개발 시 자동 새로고침
+
+## 로깅 설정 (로컬)
+```yaml
+logging:
+  level:
+    com.carcenter: DEBUG
+    org.springframework.security: DEBUG
+    org.mybatis: DEBUG
+```
+
+## 빌드 및 실행 순서
+1. Gradle Wrapper 다운로드 확인
+2. `./gradlew build` - 프로젝트 빌드
+3. `./gradlew bootRun --args='--spring.profiles.active=local'` - 실행
+4. `http://localhost:8080/api/actuator/health` - 상태 확인

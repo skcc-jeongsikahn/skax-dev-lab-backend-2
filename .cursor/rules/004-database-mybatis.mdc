@@ -1,0 +1,81 @@
+---
+globs: **/repository/*.java,**/mapper/**/*.xml,**/entity/*.java
+description: MyBatis 및 데이터베이스 설계 가이드
+---
+
+# MyBatis 및 데이터베이스 가이드
+
+## 엔티티 설계
+```java
+@Getter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class User {
+    private Long id;                    // 기본키 (AUTO_INCREMENT)
+    private String username;            // 비즈니스 키
+    private String email;
+    private String password;
+    private String name;
+    private String phone;
+    private String role;                // ENUM 타입 권장
+    private boolean enabled;            // 활성화 상태
+    private LocalDateTime createdAt;    // 생성 시간
+    private LocalDateTime updatedAt;    // 수정 시간
+}
+```
+
+## Repository 인터페이스 패턴
+```java
+@Mapper
+public interface UserRepository {
+    void save(User user);                           // 생성
+    Optional<User> findById(Long id);               // ID로 조회
+    List<User> findAll();                          // 전체 조회
+    void update(User user);                        // 수정
+    void deleteById(Long id);                      // 삭제
+    Optional<User> findByEmail(String email);      // 비즈니스 조회
+    Optional<User> findByUsername(String username); // 비즈니스 조회
+}
+```
+
+## MyBatis XML 매퍼 패턴
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.carcenter.domain.user.repository.UserRepository">
+    
+    <resultMap id="UserResultMap" type="com.carcenter.domain.user.entity.User">
+        <id property="id" column="id"/>
+        <result property="username" column="username"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+    
+    <insert id="save" parameterType="com.carcenter.domain.user.entity.User" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO users (username, email, password, name, phone, role, enabled, created_at, updated_at)
+        VALUES (#{username}, #{email}, #{password}, #{name}, #{phone}, #{role}, #{enabled}, #{createdAt}, #{updatedAt})
+    </insert>
+    
+    <select id="findById" parameterType="long" resultMap="UserResultMap">
+        SELECT * FROM users WHERE id = #{id}
+    </select>
+</mapper>
+```
+
+## 데이터베이스 설계 규칙
+- **테이블명**: 복수형, snake_case (예: `users`, `user_roles`)
+- **컬럼명**: snake_case (예: `created_at`, `updated_at`)
+- **기본키**: `id BIGINT AUTO_INCREMENT PRIMARY KEY`
+- **필수 컬럼**: `created_at`, `updated_at` (타임스탬프)
+- **인덱스**: 자주 조회되는 컬럼에 인덱스 생성
+
+## H2 vs PostgreSQL 호환성
+- H2 (로컬): `BIGINT AUTO_INCREMENT`
+- PostgreSQL (운영): `BIGSERIAL`
+- 시간 타입: `TIMESTAMP` 공통 사용
+
+## 매퍼 파일 위치
+- 경로: `src/main/resources/mapper/{domain}/{EntityName}Mapper.xml`
+- 네임스페이스: `com.carcenter.domain.{domain}.repository.{EntityName}Repository`

@@ -1,0 +1,95 @@
+---
+globs: **/security/*.java,**/auth/**/*.java,**/config/SecurityConfig.java
+description: Spring Security 및 JWT 인증 가이드
+---
+
+# Spring Security 및 JWT 인증 가이드
+
+## JWT 토큰 구조
+- **Access Token**: 24시간 유효, API 인증용
+- **Refresh Token**: 7일 유효, Access Token 갱신용
+- **알고리즘**: HS512 (HMAC SHA-512)
+
+## 인증 플로우
+1. 로그인: `POST /api/auth/login` → Access Token + Refresh Token 반환
+2. API 호출: `Authorization: Bearer {accessToken}`
+3. 토큰 갱신: `POST /api/auth/refresh` → 새로운 Access Token
+
+## Security 설정 패턴
+```java
+@Configuration
+@EnableWebSecurity
+@EnableMethodSecurity(prePostEnabled = true)
+@RequiredArgsConstructor
+public class SecurityConfig {
+    
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+            .csrf(AbstractHttpConfigurer::disable)
+            .authorizeHttpRequests(authz -> authz
+                .requestMatchers("/auth/**").permitAll()
+                .requestMatchers("/h2-console/**").permitAll()  // H2 콘솔 허용
+                .anyRequest().authenticated()
+            )
+            .headers(headers -> headers
+                .frameOptions(frameOptions -> frameOptions.disable()) // H2 콘솔용
+            )
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        
+        return http.build();
+    }
+}
+```
+
+## JWT 토큰 Provider 패턴
+```java
+@Component
+public class JwtTokenProvider {
+    
+    public String generateToken(Authentication authentication) {
+        return Jwts.builder()
+                .subject(userPrincipal.getUsername())
+                .issuedAt(new Date())
+                .expiration(expiryDate)
+                .signWith(getSigningKey())
+                .compact();
+    }
+    
+    public boolean validateToken(String token) {
+        try {
+            Jwts.parser()
+                    .verifyWith(getSigningKey())
+                    .build()
+                    .parseSignedClaims(token);
+            return true;
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
+    }
+}
+```
+
+## 사용자 권한 관리
+- **ROLE_ADMIN**: 관리자 권한
+- **ROLE_MANAGER**: 매니저 권한  
+- **ROLE_USER**: 일반 사용자 권한
+
+## 권한 체크 어노테이션
+```java
+@PreAuthorize("hasRole('ADMIN')")
+public ResponseEntity<List<UserResponse>> getAllUsers() {
+    // 관리자만 접근 가능
+}
+
+@PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
+public ResponseEntity<UserResponse> getProfile() {
+    // 사용자와 관리자 모두 접근 가능
+}
+```
+
+## 보안 고려사항
+- JWT Secret은 환경변수로 관리 (`${JWT_SECRET}`)
+- 비밀번호는 BCrypt로 암호화
+- 민감한 정보는 Response DTO에서 제외
+- HTTPS 사용 권장 (운영 환경)
